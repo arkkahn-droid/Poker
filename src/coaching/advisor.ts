@@ -72,15 +72,15 @@ export function generateTips(
       if (playerLevel <= 2) {
         // Simple language for beginners
         let msg = ''
-        if (strength > 0.85) msg = `You have ${result.description} — that's a very strong hand! Consider betting.`
-        else if (strength > 0.65) msg = `You have ${result.description} — a solid hand.`
-        else if (strength > 0.45) msg = `You have ${result.description}. It's OK, but be careful.`
+        if (strength > 0.80) msg = `You have ${result.description} — that's a very strong hand! Consider betting.`
+        else if (strength > 0.55) msg = `You have ${result.description} — a solid hand.`
+        else if (strength > 0.30) msg = `You have ${result.description}. It's a decent hand, but be careful on dangerous boards.`
         else msg = `You have ${result.description} — that's a weak hand. Think about folding if there's a big bet.`
 
         if (msg) {
           tips.push(makeTip({
             concept: 'hand-strength',
-            severity: strength > 0.65 ? 'good' : strength > 0.45 ? 'info' : 'warning',
+            severity: strength > 0.55 ? 'good' : strength > 0.30 ? 'info' : 'warning',
             timing: 'pre-action',
             title: `Your Hand: ${result.description}`,
             message: msg,
@@ -91,7 +91,7 @@ export function generateTips(
         // Shorter, more technical for higher levels
         tips.push(makeTip({
           concept: 'hand-strength',
-          severity: strength > 0.70 ? 'good' : 'info',
+          severity: strength > 0.60 ? 'good' : 'info',
           timing: 'pre-action',
           title: result.description,
           message: `Relative strength: ${Math.round(strength * 100)}th percentile. Equity vs active players: ~${Math.round(playerEquity * 100)}%.`,

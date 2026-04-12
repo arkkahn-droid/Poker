@@ -31,7 +31,8 @@ export function stringToCard(str: string): Card {
 }
 
 export function cardRankSymbol(card: Card): string {
-  return RANKS[cardRank(card)]
+  const rank = cardRank(card)
+  return rank === 8 ? '10' : RANKS[rank]
 }
 
 export function cardSuitSymbol(card: Card): string {
