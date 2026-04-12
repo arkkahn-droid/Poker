@@ -8,6 +8,7 @@ interface PlayerSeatProps {
   totalPlayers: number
   isActing: boolean
   showCards: boolean
+  compact?: boolean
   className?: string
 }
 
@@ -17,6 +18,7 @@ export function PlayerSeat({
   totalPlayers,
   isActing,
   showCards,
+  compact = false,
   className = '',
 }: PlayerSeatProps) {
   const position = getPositionName(player.seatIndex, dealerSeat, totalPlayers)
@@ -45,6 +47,30 @@ export function PlayerSeat({
   const lastActionLabel = player.lastAction
     ? formatAction(player.lastAction.action, player.lastAction.amount)
     : null
+
+  if (compact) {
+    // Compact layout for AI seats: smaller box, no last-action clutter
+    return (
+      <div className={`${className} flex flex-col items-center gap-0.5`}>
+        <HoleCards cards={player.holeCards} faceDown={!showCards} small />
+        <div
+          className={`rounded border px-1.5 py-0.5 min-w-[70px] text-center ${bgColor} ${borderColor} transition-all`}
+        >
+          <div className={`text-[10px] font-semibold truncate ${statusColor}`}>{player.name}</div>
+          <div className="text-[9px] text-gray-500">{position}</div>
+          <div className={`text-[10px] font-bold ${player.isAllIn ? 'text-red-400' : 'text-white'}`}>
+            {player.isAllIn ? 'ALL-IN' : `$${player.stack.toLocaleString()}`}
+          </div>
+          {player.bet > 0 && (
+            <div className="text-[9px] text-yellow-300">Bet ${player.bet}</div>
+          )}
+        </div>
+        {player.seatIndex === dealerSeat && (
+          <div className="text-[9px] bg-yellow-500 text-black rounded-full px-1.5 py-px font-bold">D</div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className={`${className} flex flex-col items-center gap-1`}>

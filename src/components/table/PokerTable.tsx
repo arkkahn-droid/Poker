@@ -72,6 +72,7 @@ export function PokerTable() {
                 totalPlayers={state.players.length}
                 isActing={state.actingSeat === i && state.street !== 'idle' && state.street !== 'showdown'}
                 showCards={showdown}
+                compact={!player.isHuman}
               />
             </div>
           ))}

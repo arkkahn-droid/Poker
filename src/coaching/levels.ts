@@ -7,7 +7,7 @@ export const COACH_LEVELS: CoachLevel[] = [
     name: 'Beginner',
     description: 'Learning the basics — hand rankings, blinds, and how the game works.',
     xpRequired: LEVEL_THRESHOLDS[0],
-    unlockedConcepts: ['hand-strength'],
+    unlockedConcepts: ['hand-strength', 'position'],
   },
   {
     level: 2,

@@ -1,9 +1,11 @@
 import type { GameState, ActionType } from '../types/game'
+import type { Card } from '../types/cards'
 import type { CoachTip } from '../types/coaching'
 import { isConceptUnlocked } from './levels'
 import { potOddsSummary } from '../engine/potOdds'
 import { analyzeBoardTexture } from '../engine/boardTexture'
 import { findBestHand, relativeStrength } from '../engine/handEvaluator'
+import { cardRank, cardSuit } from '../engine/cards'
 import { getPositionName } from '../engine/gameFlow'
 import { ARCHETYPES } from '../ai/archetypes'
 import type { ArchetypeId } from '../types/ai'
@@ -11,6 +13,45 @@ import type { ArchetypeId } from '../types/ai'
 let tipIdCounter = 0
 function makeTip(partial: Omit<CoachTip, 'id'>): CoachTip {
   return { ...partial, id: `tip-${++tipIdCounter}` }
+}
+
+// Evaluate starting hand quality from 2 hole cards (no board needed)
+// rank: 0=2, 1=3, ..., 8=T, 9=J, 10=Q, 11=K, 12=A
+function preflopHandQuality(cards: Card[]): { quality: 'strong' | 'decent' | 'marginal' | 'weak'; label: string } {
+  const [c1, c2] = cards
+  const r1 = Math.max(cardRank(c1), cardRank(c2))
+  const r2 = Math.min(cardRank(c1), cardRank(c2))
+  const suited = cardSuit(c1) === cardSuit(c2)
+  const gap = r1 - r2
+
+  // Pocket pairs
+  if (gap === 0) {
+    if (r1 >= 8) return { quality: 'strong', label: 'high pocket pair' }   // TT+
+    if (r1 >= 4) return { quality: 'decent', label: 'mid pocket pair' }    // 66-99
+    return { quality: 'marginal', label: 'low pocket pair' }                // 22-55
+  }
+
+  // Ace-high hands
+  if (r1 === 12) {
+    if (r2 >= 9) return { quality: 'strong', label: suited ? 'suited Ace broadway' : 'Ace broadway' }   // AJ+
+    if (suited) return { quality: 'decent', label: 'suited Ace' }
+    if (r2 >= 6) return { quality: 'marginal', label: 'Ace with mid kicker' }
+    return { quality: 'weak', label: 'Ace with weak kicker' }
+  }
+
+  // Both broadway (J, Q, K — excluding Ace handled above)
+  if (r2 >= 9) return { quality: 'decent', label: suited ? 'suited broadway' : 'broadway' }
+
+  // Suited connectors / one-gappers with some rank
+  if (suited && gap <= 2 && r1 >= 5) return { quality: 'decent', label: 'suited connector' }
+
+  // King with decent kicker
+  if (r1 === 11 && r2 >= 6) return { quality: 'marginal', label: 'King with kicker' }
+
+  // High-card with weak kicker
+  if (r1 >= 9) return { quality: 'weak', label: 'high card, weak kicker' }
+
+  return { quality: 'weak', label: 'low cards' }
 }
 
 // Generate coaching tips for the current game situation
@@ -61,6 +102,35 @@ export function generateTips(
         minLevel: 3,
       }))
     }
+  }
+
+  // ── Preflop starting hand tip (all levels) ──────────────────────────────
+  if (state.communityCards.length === 0) {
+    const { quality, label } = preflopHandQuality(human.holeCards)
+    const inPosition = position === 'BTN' || position === 'CO'
+    let msg = ''
+
+    if (quality === 'strong') {
+      msg = `You have a ${label} — a premium hand. Raise to build the pot${inPosition ? ' and take control' : ''}.`
+    } else if (quality === 'decent') {
+      msg = `You have a ${label}. Worth playing${inPosition ? ', especially with your position advantage' : ' — but tighten up if there are re-raises'}.`
+    } else if (quality === 'marginal') {
+      msg = `You have a ${label}. It can be playable${inPosition ? ' from late position, but don\'t overcommit' : ' occasionally, but fold to big raises'}.`
+    } else {
+      msg = inPosition
+        ? `You have ${label} — weak cards, but you have position. A steal raise might work if the table is passive, otherwise fold.`
+        : `You have ${label} — a weak starting hand. Folding is usually right here, especially with more players still to act.`
+    }
+
+    const severity = quality === 'strong' ? 'good' : quality === 'decent' ? 'info' : 'warning'
+    tips.push(makeTip({
+      concept: 'hand-strength',
+      severity,
+      timing: 'pre-action',
+      title: `Starting Hand: ${label.charAt(0).toUpperCase() + label.slice(1)}`,
+      message: msg,
+      minLevel: 1,
+    }))
   }
 
   // ── Hand strength tip (all levels) ──────────────────────────────────────
