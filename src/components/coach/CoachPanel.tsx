@@ -19,19 +19,18 @@ export function CoachPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Header: level & XP */}
-      <div className="border-b border-gray-800 p-4">
-        <div className="flex items-center justify-between mb-2">
+      <div className="border-b border-gray-800 px-3 py-2">
+        <div className="flex items-center justify-between mb-1.5">
           <div>
-            <span className="text-xs text-gray-500 uppercase tracking-wider">Coach</span>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-white">Level {progress.level}</span>
-              <span className="text-sm text-gray-400">{levelInfo.name}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold text-white">Lv {progress.level}</span>
+              <span className="text-xs text-gray-400">{levelInfo.name}</span>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-gray-500">{progress.xp.toLocaleString()} XP</div>
+            <div className="text-[10px] text-gray-500">{progress.xp} XP</div>
             {progress.level < 10 && (
-              <div className="text-xs text-gray-600">{toNext} to next</div>
+              <div className="text-[10px] text-gray-600">{toNext} to next</div>
             )}
           </div>
         </div>
@@ -47,14 +46,14 @@ export function CoachPanel() {
 
       {/* Current game info */}
       {state.street !== 'idle' && state.street !== 'showdown' && (
-        <div className="flex gap-4 px-4 py-2 border-b border-gray-800 text-xs text-gray-500">
+        <div className="flex gap-3 px-3 py-1.5 border-b border-gray-800 text-[10px] text-gray-500">
           <span>Street: <span className="text-gray-300 capitalize">{state.street}</span></span>
           {position && <span>Pos: <span className="text-gray-300">{position}</span></span>}
         </div>
       )}
 
       {/* Tips — main content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {tips.length === 0 && state.street !== 'idle' && (
           <div className="text-center text-gray-600 text-sm mt-8">
             <div className="text-2xl mb-2">🃏</div>

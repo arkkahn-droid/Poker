@@ -97,7 +97,7 @@ export function PokerTable() {
       </div>
 
       {/* Coach panel (right sidebar) */}
-      <div className="w-80 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
+      <div className="w-56 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
         <CoachPanel />
       </div>
     </div>

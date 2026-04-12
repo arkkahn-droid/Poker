@@ -49,24 +49,23 @@ export function PlayerSeat({
     : null
 
   if (compact) {
-    // Compact layout for AI seats: smaller box, no last-action clutter
+    // Minimal chip for AI seats: just name + stack, tiny cards
     return (
       <div className={`${className} flex flex-col items-center gap-0.5`}>
         <HoleCards cards={player.holeCards} faceDown={!showCards} small />
         <div
-          className={`rounded border px-1.5 py-0.5 min-w-[70px] text-center ${bgColor} ${borderColor} transition-all`}
+          className={`rounded border px-1 py-0.5 min-w-[58px] text-center ${bgColor} ${borderColor} transition-all`}
         >
-          <div className={`text-[10px] font-semibold truncate ${statusColor}`}>{player.name}</div>
-          <div className="text-[9px] text-gray-500">{position}</div>
-          <div className={`text-[10px] font-bold ${player.isAllIn ? 'text-red-400' : 'text-white'}`}>
-            {player.isAllIn ? 'ALL-IN' : `$${player.stack.toLocaleString()}`}
+          <div className={`text-[9px] font-semibold truncate leading-tight ${statusColor}`}>{player.name}</div>
+          <div className={`text-[9px] font-bold leading-tight ${player.isAllIn ? 'text-red-400' : 'text-white'}`}>
+            {player.isAllIn ? 'AI' : player.folded ? 'Folded' : `$${player.stack}`}
           </div>
-          {player.bet > 0 && (
-            <div className="text-[9px] text-yellow-300">Bet ${player.bet}</div>
+          {player.bet > 0 && !player.folded && (
+            <div className="text-[8px] text-yellow-300 leading-tight">${player.bet}</div>
           )}
         </div>
         {player.seatIndex === dealerSeat && (
-          <div className="text-[9px] bg-yellow-500 text-black rounded-full px-1.5 py-px font-bold">D</div>
+          <div className="text-[8px] bg-yellow-500 text-black rounded-full px-1 py-px font-bold leading-none">D</div>
         )}
       </div>
     )
