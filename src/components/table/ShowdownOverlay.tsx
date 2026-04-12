@@ -6,7 +6,7 @@ interface ShowdownOverlayProps {
 }
 
 export function ShowdownOverlay({ result }: ShowdownOverlayProps) {
-  const { state } = useGameStore()
+  const { state, dealHand } = useGameStore()
 
   const humanWon = result.winnerId.includes('human')
   const winnerNames = result.winnerId.map((id) => {
@@ -15,8 +15,11 @@ export function ShowdownOverlay({ result }: ShowdownOverlayProps) {
     return p?.name ?? id
   })
 
+  const activePlayers = state.players.filter((p) => p.stack > 0)
+  const gameOver = activePlayers.length < 2
+
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+    <div className="absolute inset-0 flex items-center justify-center">
       <div
         className={`rounded-2xl border px-8 py-5 text-center shadow-2xl backdrop-blur-sm ${
           humanWon
@@ -37,9 +40,17 @@ export function ShowdownOverlay({ result }: ShowdownOverlayProps) {
         <div className="text-sm text-gray-400 mt-1">
           ${result.amount.toLocaleString()} pot
         </div>
-        <div className="text-xs text-gray-600 mt-2 animate-pulse">
-          Next hand starting...
-        </div>
+
+        {gameOver ? (
+          <div className="text-sm text-gray-400 mt-3 font-semibold">Game over</div>
+        ) : (
+          <button
+            onClick={dealHand}
+            className="mt-4 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer"
+          >
+            Deal next hand
+          </button>
+        )}
       </div>
     </div>
   )

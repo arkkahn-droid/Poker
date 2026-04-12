@@ -63,6 +63,7 @@ export function generateTips(
   const tips: CoachTip[] = []
   const human = state.players[0]
   if (!human || human.holeCards.length < 2) return tips
+  if (human.folded) return tips  // no tips once the human has folded
 
   const position = getPositionName(0, state.dealerSeat, state.players.length)
   const callAmount = Math.min(state.currentBet - human.bet, human.stack)

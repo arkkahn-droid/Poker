@@ -3,7 +3,7 @@ import { useGameStore, isHumanTurn } from '../store/gameStore'
 
 // Drives the AI action loop with timing delays
 export function useGameLoop() {
-  const { state, aiAction, dealHand } = useGameStore()
+  const { state, aiAction } = useGameStore()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -12,16 +12,8 @@ export function useGameLoop() {
       timerRef.current = null
     }
 
-    // After showdown, deal next hand after a pause
-    if (state.street === 'showdown' && state.showdownResult) {
-      timerRef.current = setTimeout(() => {
-        const activePlayers = state.players.filter((p) => p.stack > 0)
-        if (activePlayers.length >= 2) {
-          dealHand()
-        }
-      }, 3000)
-      return
-    }
+    // After showdown, wait for human to click "Deal next hand" — do not auto-advance
+    if (state.street === 'showdown') return
 
     if (state.street === 'idle' || state.phase !== 'game') return
 
