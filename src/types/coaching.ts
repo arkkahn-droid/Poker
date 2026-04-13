@@ -2,6 +2,7 @@ export type TipSeverity = 'good' | 'info' | 'warning' | 'mistake'
 export type TipTiming = 'pre-action' | 'post-action' | 'post-hand'
 export type ConceptId =
   | 'hand-strength'
+  | 'draws'
   | 'pot-odds'
   | 'position'
   | 'board-texture'

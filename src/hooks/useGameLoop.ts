@@ -22,7 +22,24 @@ export function useGameLoop() {
 
     // Find the acting AI player
     const actingPlayer = state.players[state.actingSeat]
-    if (!actingPlayer || actingPlayer.isHuman || actingPlayer.folded || actingPlayer.isAllIn) return
+
+    // Safety net: if actingSeat points to a player who can't act (eliminated, folded, all-in),
+    // skip their turn by having them fold — prevents permanent hangs
+    if (!actingPlayer || actingPlayer.folded || actingPlayer.isAllIn || actingPlayer.stack === 0) {
+      if (!actingPlayer?.isHuman) {
+        timerRef.current = setTimeout(() => {
+          const current = useGameStore.getState().state
+          const seat = current.actingSeat
+          const p = current.players[seat]
+          if (p && !p.isHuman && !p.folded && !p.isAllIn && p.stack === 0) {
+            useGameStore.getState().playerAction('fold', 0)
+          }
+        }, 50)
+      }
+      return
+    }
+
+    if (actingPlayer.isHuman) return
 
     // Find the AI player config to get timing delay
     const { aiPlayers } = useGameStore.getState()

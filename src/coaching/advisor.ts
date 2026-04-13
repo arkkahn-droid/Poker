@@ -54,6 +54,70 @@ function preflopHandQuality(cards: Card[]): { quality: 'strong' | 'decent' | 'ma
   return { quality: 'weak', label: 'low cards' }
 }
 
+// ── Draw analysis ────────────────────────────────────────────────────────────
+
+interface DrawInfo { description: string; outs: number; pct: number }
+
+function outsToPct(outs: number, cardsTocome: number): number {
+  if (cardsTocome <= 0) return 0
+  if (cardsTocome === 1) return Math.round(outs / 46 * 100)
+  // 2 cards to come: 1 - (47-outs)/47 * (46-outs)/46
+  return Math.round((1 - ((47 - outs) / 47) * ((46 - outs) / 46)) * 100)
+}
+
+function analyzeDraws(holeCards: Card[], board: Card[]): DrawInfo[] {
+  const draws: DrawInfo[] = []
+  const cardsTocome = board.length === 3 ? 2 : board.length === 4 ? 1 : 0
+  if (cardsTocome === 0) return draws
+
+  const all = [...holeCards, ...board]
+  const holeRankSet = new Set(holeCards.map(cardRank))
+  const allRankSet = new Set(all.map(cardRank))
+
+  // 1. Flush draw: 4 cards of same suit, with at least 1 hole card contributing
+  const suitCounts = [0, 0, 0, 0]
+  for (const c of all) suitCounts[cardSuit(c)]++
+  for (let s = 0; s < 4; s++) {
+    if (suitCounts[s] === 4 && holeCards.some(c => cardSuit(c) === s)) {
+      draws.push({ description: 'Flush draw', outs: 9, pct: outsToPct(9, cardsTocome) })
+      break
+    }
+  }
+
+  // 2. Straight draw: find the best draw across all 5-rank windows
+  let bestStraight: DrawInfo | null = null
+  for (let low = 0; low <= 8; low++) {
+    const window = [low, low + 1, low + 2, low + 3, low + 4]
+    const inWindow = window.filter(r => allRankSet.has(r))
+    if (inWindow.length !== 4) continue
+    if (!window.some(r => holeRankSet.has(r))) continue // hole cards must contribute
+
+    const consecutive = inWindow[3] - inWindow[0] === 3
+    if (consecutive && !allRankSet.has(low) && !allRankSet.has(low + 4)) {
+      // True OESD: 4 consecutive, both ends missing
+      bestStraight = { description: 'Straight draw (open-ended)', outs: 8, pct: outsToPct(8, cardsTocome) }
+      break // can't do better
+    } else if (!bestStraight || bestStraight.outs < 4) {
+      bestStraight = { description: consecutive ? 'Straight draw (one-ended)' : 'Gutshot straight draw', outs: 4, pct: outsToPct(4, cardsTocome) }
+    }
+  }
+  if (bestStraight) draws.push(bestStraight)
+
+  // 3. Pair improvement: hole pair → trips (2 outs), or paired board card → trips (2 outs)
+  const [h1, h2] = holeCards
+  if (h1 !== undefined && h2 !== undefined) {
+    const r1 = cardRank(h1), r2 = cardRank(h2)
+    const boardRankSet = new Set(board.map(cardRank))
+    if (r1 === r2) {
+      draws.push({ description: 'Pocket pair → trips', outs: 2, pct: outsToPct(2, cardsTocome) })
+    } else if (boardRankSet.has(r1) || boardRankSet.has(r2)) {
+      draws.push({ description: 'Pair → trips', outs: 2, pct: outsToPct(2, cardsTocome) })
+    }
+  }
+
+  return draws
+}
+
 // Generate coaching tips for the current game situation
 export function generateTips(
   state: GameState,
@@ -171,6 +235,23 @@ export function generateTips(
       }
     } catch {
       // ignore hand eval errors
+    }
+  }
+
+  // ── Draw analysis tip (flop + turn, all levels) ─────────────────────────
+  if (state.communityCards.length >= 3 && state.communityCards.length < 5) {
+    const draws = analyzeDraws(human.holeCards, state.communityCards)
+    if (draws.length > 0) {
+      const lines = draws.map(d => `${d.description}: ${d.outs} outs (~${d.pct}% to hit)`)
+      const hasStrong = draws.some(d => d.outs >= 8)
+      tips.push(makeTip({
+        concept: 'draws',
+        severity: hasStrong ? 'good' : 'info',
+        timing: 'pre-action',
+        title: draws.length === 1 ? draws[0].description : `${draws.length} draws`,
+        message: lines.join('\n'),
+        minLevel: 1,
+      }))
     }
   }
 

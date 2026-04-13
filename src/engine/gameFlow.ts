@@ -97,7 +97,7 @@ export function dealNewHand(state: GameState): GameState {
     holeCards: [] as import('../types/cards').Card[],
     bet: 0,
     totalInvested: 0,
-    folded: false,
+    folded: p.stack === 0,   // eliminated players are pre-folded so they're invisible to all action logic
     isAllIn: false,
     lastAction: undefined as ActionRecord | undefined,
   }))
@@ -134,11 +134,11 @@ export function dealNewHand(state: GameState): GameState {
   if (players[sbSeat].stack === 0) players[sbSeat].isAllIn = true
   if (players[bbSeat].stack === 0) players[bbSeat].isAllIn = true
 
-  // Deal 2 hole cards to each player with stack > 0
+  // Deal 2 hole cards only to active players (stack > 0)
   let cardIdx = 0
   for (let round = 0; round < 2; round++) {
     for (const p of players) {
-      if (p.stack >= 0 || p.totalInvested > 0) {
+      if (p.stack > 0 || p.totalInvested > 0) {
         const card = deck[cardIdx++]
         if (card !== undefined) p.holeCards.push(card)
       }
