@@ -2,7 +2,7 @@ import { useGameStore, isHumanTurn } from '../../store/gameStore'
 import { useGameLoop } from '../../hooks/useGameLoop'
 import { useEquity } from '../../hooks/useEquity'
 import { PlayerSeat } from './PlayerSeat'
-import { CommunityCards } from './CommunityCards'
+import { PlayingCard } from '../cards/PlayingCard'
 import { ActionPanel } from '../controls/ActionPanel'
 import { CoachPanel } from '../coach/CoachPanel'
 import { ShowdownOverlay } from './ShowdownOverlay'
@@ -26,36 +26,20 @@ export function PokerTable() {
 
   const humanTurn = isHumanTurn(state)
   const showdown = state.street === 'showdown'
+  const showBoard = state.street !== 'idle'
+  const showEquity = state.players[0]?.holeCards.length === 2 && !showdown && state.street !== 'idle'
 
   return (
     <div className="flex h-screen bg-gray-950 overflow-hidden">
-      {/* Main table area + action panel */}
+      {/* Main table area + board strip + action panel */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Table area */}
-        <div className="flex-1 relative">
-          {/* Felt table oval */}
-          <div className="absolute inset-8 rounded-[50%] bg-emerald-900 border-4 border-emerald-700 shadow-inner flex items-center justify-center">
-            {/* Center content */}
-            <div className="flex flex-col items-center gap-4">
-              {/* Street indicator */}
-              <div className="text-sm text-emerald-300 uppercase tracking-widest font-semibold">
-                {state.street !== 'idle' ? state.street : ''}
-              </div>
-              <CommunityCards cards={state.communityCards} pot={state.pot} />
 
-              {/* Equity bar for human */}
-              {state.players[0]?.holeCards.length === 2 && state.street !== 'idle' && state.street !== 'showdown' && (
-                <div className="flex items-center gap-2 bg-black/30 rounded-lg px-3 py-1.5">
-                  <span className="text-xs text-gray-400">Your equity:</span>
-                  {equityLoading ? (
-                    <span className="text-xs text-gray-500 animate-pulse">calculating...</span>
-                  ) : (
-                    <span className={`text-sm font-bold ${playerEquity >= 0.5 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {Math.round(playerEquity * 100)}%
-                    </span>
-                  )}
-                </div>
-              )}
+        {/* Table oval with seats — no cards inside */}
+        <div className="flex-1 relative min-h-0">
+          {/* Felt oval — pure decoration */}
+          <div className="absolute inset-8 rounded-[50%] bg-emerald-900 border-4 border-emerald-700 shadow-inner flex items-center justify-center">
+            <div className="text-xs text-emerald-600 uppercase tracking-widest font-semibold select-none">
+              {state.street !== 'idle' && state.street !== 'showdown' ? state.street : ''}
             </div>
           </div>
 
@@ -88,7 +72,39 @@ export function PokerTable() {
           </div>
         </div>
 
-        {/* Action panel — below table, never overlaps */}
+        {/* Board strip — dedicated row, never covered by seats */}
+        {showBoard && (
+          <div className="flex-shrink-0 border-t border-gray-800 bg-gray-900 px-3 py-2 flex items-center justify-between gap-3">
+            {/* Community cards */}
+            <div className="flex gap-1.5 items-center">
+              {[0, 1, 2, 3, 4].map((i) =>
+                state.communityCards[i] !== undefined ? (
+                  <PlayingCard key={i} card={state.communityCards[i]} small />
+                ) : (
+                  <div key={i} className="w-9 h-[52px] rounded border border-dashed border-gray-700 opacity-20" />
+                )
+              )}
+            </div>
+
+            {/* Pot + equity */}
+            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+              <span className="text-sm font-bold text-yellow-300">
+                ${state.pot.toLocaleString()}
+              </span>
+              {showEquity && (
+                equityLoading ? (
+                  <span className="text-[10px] text-gray-500 animate-pulse">calculating…</span>
+                ) : (
+                  <span className={`text-xs font-bold ${playerEquity >= 0.5 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    Eq {Math.round(playerEquity * 100)}%
+                  </span>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Action panel — below board strip, never overlaps */}
         {humanTurn && (
           <div className="flex-shrink-0 border-t border-gray-800 bg-gray-950 px-4 py-3">
             <ActionPanel />
