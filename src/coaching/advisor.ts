@@ -5,7 +5,7 @@ import { isConceptUnlocked } from './levels'
 import { potOddsSummary } from '../engine/potOdds'
 import { analyzeBoardTexture } from '../engine/boardTexture'
 import { findBestHand, relativeStrength } from '../engine/handEvaluator'
-import { cardRank, cardSuit } from '../engine/cards'
+import { cardRank, cardSuit, cardRankSymbol, cardSuitSymbol } from '../engine/cards'
 import { getPositionName } from '../engine/gameFlow'
 import { ARCHETYPES } from '../ai/archetypes'
 import type { ArchetypeId } from '../types/ai'
@@ -416,4 +416,168 @@ export function generatePostActionTip(
   }
 
   return null
+}
+
+// ── Post-hand review (called at showdown) ───────────────────────────────────
+
+function formatCard(card: Card): string {
+  return cardRankSymbol(card) + cardSuitSymbol(card)
+}
+
+function formatCards(cards: Card[]): string {
+  return cards.map(formatCard).join(' ')
+}
+
+export function generateHandReview(
+  state: GameState,
+  playerLevel: number,
+  aiPlayers: import('../types/ai').AIPlayer[],
+): CoachTip[] {
+  const tips: CoachTip[] = []
+  if (!state.showdownResult) return tips
+
+  const human = state.players[0]
+  const board = state.communityCards
+  const { winnerId, amount, hand } = state.showdownResult
+  const humanWon = winnerId.includes('human')
+
+  const winnerPlayer = state.players.find(p => p.id === winnerId[0])
+  const winnerName = winnerPlayer ? (winnerPlayer.isHuman ? 'You' : winnerPlayer.name) : 'Unknown'
+
+  // ── Tip 1: Result summary ────────────────────────────────────────────────
+  {
+    let msg = ''
+    if (humanWon) {
+      msg = `You won $${amount.toLocaleString()}${hand ? ` with ${hand}` : ''}.`
+      if (winnerPlayer?.holeCards.length) msg += ` Your hole cards: ${formatCards(winnerPlayer.holeCards)}.`
+    } else {
+      msg = `${winnerName} won $${amount.toLocaleString()}${hand ? ` with ${hand}` : ''}.`
+      if (winnerPlayer?.holeCards.length) msg += ` They held ${formatCards(winnerPlayer.holeCards)}.`
+    }
+    tips.push(makeTip({
+      concept: 'hand-strength',
+      severity: humanWon ? 'good' : 'info',
+      timing: 'post-hand',
+      title: humanWon ? 'You won!' : `${winnerName} wins`,
+      message: msg,
+      minLevel: 1,
+    }))
+  }
+
+  // ── Tip 2: Your play analysis ────────────────────────────────────────────
+  if (human && human.holeCards.length >= 2 && board.length >= 3) {
+    try {
+      const humanHand = findBestHand(human.holeCards, board)
+      const humanCards = formatCards(human.holeCards)
+
+      if (human.folded) {
+        // Show what they would have made
+        let msg = `You folded ${humanCards} — on this board that would have been ${humanHand.description}.`
+        if (winnerPlayer && !winnerPlayer.isHuman && winnerPlayer.holeCards.length >= 2) {
+          try {
+            const winnerHand = findBestHand(winnerPlayer.holeCards, board)
+            const humanStrength = relativeStrength(humanHand.rank)
+            const winnerStrength = relativeStrength(winnerHand.rank)
+            if (humanStrength > winnerStrength) {
+              msg += ` You were actually ahead of ${winnerName}'s ${winnerHand.description} — consider staying in longer when you have equity.`
+            } else {
+              msg += ` ${winnerName} had ${winnerHand.description} — your fold was correct.`
+            }
+          } catch { /* ignore */ }
+        }
+        tips.push(makeTip({
+          concept: 'hand-strength',
+          severity: 'info',
+          timing: 'post-hand',
+          title: `What you folded: ${humanHand.description}`,
+          message: msg,
+          minLevel: 1,
+        }))
+      } else if (!humanWon && winnerPlayer && !winnerPlayer.isHuman && winnerPlayer.holeCards.length >= 2) {
+        try {
+          const winnerHand = findBestHand(winnerPlayer.holeCards, board)
+          const msg = `Your ${humanHand.description} (${humanCards}) lost to ${winnerName}'s ${winnerHand.description} (${formatCards(winnerPlayer.holeCards)}).`
+          tips.push(makeTip({
+            concept: 'hand-strength',
+            severity: 'info',
+            timing: 'post-hand',
+            title: 'Your hand vs theirs',
+            message: msg,
+            minLevel: 1,
+          }))
+        } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // ── Tip 3: Bluff / value-bet reveal ─────────────────────────────────────
+  // Find the most active non-human bettor/raiser who went to showdown (cards visible)
+  if (board.length >= 3) {
+    const aggressors = state.players.filter(p =>
+      !p.isHuman &&
+      !p.folded &&
+      p.holeCards.length >= 2 &&
+      state.handHistory.some(a => a.playerId === p.id && (a.action === 'bet' || a.action === 'raise'))
+    )
+
+    for (const aggressor of aggressors) {
+      try {
+        const theirHand = findBestHand(aggressor.holeCards, board)
+        const strength = relativeStrength(theirHand.rank)
+        const theirActions = state.handHistory.filter(
+          a => a.playerId === aggressor.id && (a.action === 'bet' || a.action === 'raise')
+        )
+        if (theirActions.length === 0) continue
+
+        const biggestAction = theirActions.reduce((max, a) => a.amount > max.amount ? a : max)
+        const aiConfig = aiPlayers.find(p => p.id === aggressor.id)
+        const archName = aiConfig?.archetype.name ?? 'this player'
+        const cards = formatCards(aggressor.holeCards)
+
+        if (strength < 0.35) {
+          // Bluff detected
+          let msg = `${aggressor.name} bet $${biggestAction.amount} on the ${biggestAction.street} holding ${cards} (${theirHand.description}) — that was a bluff.`
+          if (aiConfig) {
+            if (aiConfig.archetype.id === 'maniac' || aiConfig.archetype.id === 'lag') {
+              msg += ` ${archName} players bluff frequently — don't automatically fold to their aggression. Call them down with medium-strength hands.`
+            } else {
+              msg += ` This is unusual for a ${archName}. They tend to be more honest with their bets — they got away with one here.`
+            }
+          }
+          tips.push(makeTip({
+            concept: 'meta-game',
+            severity: 'warning',
+            timing: 'post-hand',
+            title: `${aggressor.name} was bluffing`,
+            message: msg,
+            minLevel: 1,
+          }))
+          break
+        } else if (strength > 0.65) {
+          // Value bet
+          let msg = `${aggressor.name} bet $${biggestAction.amount} on the ${biggestAction.street} with ${cards} (${theirHand.description}) — they had a real hand.`
+          if (aiConfig) {
+            if (aiConfig.archetype.id === 'nit') {
+              msg += ` Nits almost never bluff — when a Nit bets big, give them credit.`
+            } else if (aiConfig.archetype.id === 'callingstation') {
+              msg += ` Calling Stations rarely bet without a strong hand. Their bet was for value.`
+            } else {
+              msg += ` When ${archName} players bet this size with strong hands, consider what you'd need to continue profitably.`
+            }
+          }
+          tips.push(makeTip({
+            concept: 'meta-game',
+            severity: 'info',
+            timing: 'post-hand',
+            title: `${aggressor.name} bet for value`,
+            message: msg,
+            minLevel: 1,
+          }))
+          break
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  return tips.filter(t => t.minLevel <= playerLevel)
 }

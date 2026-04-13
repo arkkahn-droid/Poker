@@ -54,10 +54,16 @@ export function CoachPanel() {
 
       {/* Tips — main content */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {tips.length === 0 && state.street !== 'idle' && (
+        {tips.length === 0 && state.street !== 'idle' && state.street !== 'showdown' && (
           <div className="text-center text-gray-600 text-sm mt-8">
             <div className="text-2xl mb-2">🃏</div>
             <div>Watching the action...</div>
+          </div>
+        )}
+
+        {state.street === 'showdown' && tips.length > 0 && (
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 pb-1">
+            Hand review
           </div>
         )}
 
