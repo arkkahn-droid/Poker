@@ -6,7 +6,6 @@ import { PlayingCard } from '../cards/PlayingCard'
 import { ActionPanel } from '../controls/ActionPanel'
 import { CoachPanel } from '../coach/CoachPanel'
 import { ShowdownOverlay } from './ShowdownOverlay'
-
 // Seat positions around the table (CSS positions as percentages)
 // Seat 0 = human (bottom center), 1-5 = AI players
 const SEAT_POSITIONS = [
@@ -19,7 +18,7 @@ const SEAT_POSITIONS = [
 ]
 
 export function PokerTable() {
-  const { state, playerEquity, equityLoading } = useGameStore()
+  const { state, playerEquity, equityLoading, aiAction } = useGameStore()
 
   useGameLoop()
   useEquity()
@@ -28,6 +27,16 @@ export function PokerTable() {
   const showdown = state.street === 'showdown'
   const showBoard = state.street !== 'idle'
   const showEquity = state.players[0]?.holeCards.length === 2 && !showdown && state.street !== 'idle'
+
+  // Show nudge button when it's an AI's turn (not human, not idle, not showdown)
+  const aiTurn = !humanTurn && state.street !== 'idle' && state.street !== 'showdown'
+  const actingPlayer = state.players[state.actingSeat]
+
+  function nudgeAI() {
+    if (actingPlayer && !actingPlayer.isHuman) {
+      aiAction(actingPlayer.id)
+    }
+  }
 
   return (
     <div className="flex h-screen bg-gray-950 overflow-hidden">
@@ -70,6 +79,16 @@ export function PokerTable() {
           <div className="absolute top-3 left-4 text-xs text-gray-600">
             Hand #{state.handNumber}
           </div>
+
+          {/* Nudge button — tap if an AI player appears stuck */}
+          {aiTurn && (
+            <button
+              onClick={nudgeAI}
+              className="absolute bottom-3 right-3 text-[10px] text-gray-600 hover:text-gray-400 border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
+            >
+              stuck? tap
+            </button>
+          )}
         </div>
 
         {/* Board strip — dedicated row, never covered by seats */}
