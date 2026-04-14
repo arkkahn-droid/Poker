@@ -64,6 +64,7 @@ interface GameStore {
   dealHand: () => void
   playerAction: (action: ActionType, amount: number) => void
   aiAction: (playerId: string) => void
+  nudgeActingPlayer: () => void
   setEquity: (equity: number) => void
   setEquityLoading: (loading: boolean) => void
   goToLobby: () => void
@@ -140,6 +141,21 @@ export const useGameStore = create<GameStore>()(
           decision.action as ActionType,
           decision.amount,
         )
+      })
+      if (prevStreet !== 'showdown' && get().state.street === 'showdown') {
+        recordHandResult(get().state, get().tableConfig)
+      }
+    },
+
+    nudgeActingPlayer: () => {
+      const { state } = get()
+      const p = state.players[state.actingSeat]
+      if (!p || p.isHuman || p.folded) return
+      // Bypass makeDecision entirely — check if no bet to face, else fold
+      const action: ActionType = state.currentBet > p.bet ? 'fold' : 'check'
+      const prevStreet = state.street
+      set((store) => {
+        store.state = applyAction(store.state, p.id, action, 0)
       })
       if (prevStreet !== 'showdown' && get().state.street === 'showdown') {
         recordHandResult(get().state, get().tableConfig)
