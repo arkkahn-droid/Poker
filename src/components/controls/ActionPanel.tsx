@@ -12,6 +12,7 @@ export function ActionPanel() {
   const callAmount = getCallAmount(state)
   const canCheck = callAmount === 0
   const canCall = callAmount > 0 && callAmount < human.stack
+  const canCallAllIn = callAmount > 0 && callAmount >= human.stack  // bet exceeds stack → call all-in
   const canRaise = human.stack > callAmount
   const minRaise = state.minRaise || state.blindLevel * 2
   const maxRaise = human.stack
@@ -101,7 +102,7 @@ export function ActionPanel() {
           Fold
         </button>
 
-        {/* Check or Call */}
+        {/* Check or Call or Call All-In */}
         {canCheck ? (
           <button
             onClick={handleCheck}
@@ -115,6 +116,13 @@ export function ActionPanel() {
             className="flex-1 bg-blue-900/80 hover:bg-blue-800 border border-blue-700 text-blue-200 font-semibold rounded-xl px-4 py-3 transition-colors"
           >
             Call ${callAmount.toLocaleString()}
+          </button>
+        ) : canCallAllIn ? (
+          <button
+            onClick={handleAllIn}
+            className="flex-1 bg-orange-900/80 hover:bg-orange-800 border border-orange-700 text-orange-200 font-semibold rounded-xl px-4 py-3 transition-colors"
+          >
+            Call All-In ${human.stack.toLocaleString()}
           </button>
         ) : null}
 
