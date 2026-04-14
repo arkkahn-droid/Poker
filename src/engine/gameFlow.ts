@@ -145,8 +145,8 @@ export function dealNewHand(state: GameState): GameState {
     }
   }
 
-  // First to act preflop: UTG = seat after BB
-  const utgSeat = findNextActiveSeat(players, bbSeat, n)
+  // First to act preflop: UTG = seat after BB (must have chips left to act)
+  const utgSeat = findNextSeatWithChips(players, bbSeat, n)
 
   const pot = players[sbSeat].bet + players[bbSeat].bet
 
@@ -175,6 +175,15 @@ function findNextActiveSeat(players: PlayerState[], fromSeat: number, n: number)
   for (let i = 1; i <= n; i++) {
     const seat = (fromSeat + i) % n
     if (players[seat].stack > 0 || players[seat].totalInvested > 0) return seat
+  }
+  return (fromSeat + 1) % n
+}
+
+// For UTG: only players with chips remaining and not already all-in
+function findNextSeatWithChips(players: PlayerState[], fromSeat: number, n: number): number {
+  for (let i = 1; i <= n; i++) {
+    const seat = (fromSeat + i) % n
+    if (players[seat].stack > 0 && !players[seat].isAllIn) return seat
   }
   return (fromSeat + 1) % n
 }

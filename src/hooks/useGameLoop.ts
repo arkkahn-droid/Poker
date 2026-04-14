@@ -5,11 +5,16 @@ import { useGameStore, isHumanTurn } from '../store/gameStore'
 export function useGameLoop() {
   const { state, aiAction } = useGameStore()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current)
       timerRef.current = null
+    }
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current)
+      watchdogRef.current = null
     }
 
     // After showdown, wait for human to click "Deal next hand" — do not auto-advance
@@ -24,18 +29,16 @@ export function useGameLoop() {
     const actingPlayer = state.players[state.actingSeat]
 
     // Safety net: if actingSeat points to a player who can't act (eliminated, folded, all-in),
-    // skip their turn by having them fold — prevents permanent hangs
+    // advance the game by applying a check (which gameFlow will immediately forward)
     if (!actingPlayer || actingPlayer.folded || actingPlayer.isAllIn || actingPlayer.stack === 0) {
-      if (!actingPlayer?.isHuman) {
-        timerRef.current = setTimeout(() => {
-          const current = useGameStore.getState().state
-          const seat = current.actingSeat
-          const p = current.players[seat]
-          if (p && !p.isHuman && !p.folded && !p.isAllIn && p.stack === 0) {
-            useGameStore.getState().playerAction('fold', 0)
-          }
-        }, 50)
-      }
+      timerRef.current = setTimeout(() => {
+        const s = useGameStore.getState().state
+        const p = s.players[s.actingSeat]
+        // Force a check action to unstick — gameFlow will advance to next player/street
+        if (p && !p.isHuman) {
+          useGameStore.getState().aiAction(p.id)
+        }
+      }, 100)
       return
     }
 
@@ -52,8 +55,19 @@ export function useGameLoop() {
       aiAction(actingPlayer.id)
     }, delayMs)
 
+    // Watchdog: if AI hasn't acted after 6s, force a fold to unstick
+    watchdogRef.current = setTimeout(() => {
+      const s = useGameStore.getState().state
+      if (s.street === 'showdown' || s.street === 'idle') return
+      const p = s.players[s.actingSeat]
+      if (p && !p.isHuman && !p.folded) {
+        useGameStore.getState().playerAction('fold', 0)
+      }
+    }, 6000)
+
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
+      if (watchdogRef.current) clearTimeout(watchdogRef.current)
     }
   }, [state.actingSeat, state.street, state.phase, state.showdownResult])
 }

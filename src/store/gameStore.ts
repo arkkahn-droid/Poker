@@ -7,6 +7,7 @@ import { makeDecision } from '../ai/decisionEngine'
 import { ARCHETYPES, DEFAULT_TABLE_ARCHETYPES, AI_NAMES } from '../ai/archetypes'
 import { findBestHand, relativeStrength } from '../engine/handEvaluator'
 import type { ArchetypeId } from '../types/ai'
+import { usePlayerStore } from './playerStore'
 
 const DEFAULT_CONFIG: TableConfig = {
   gameMode: 'cash',
@@ -108,9 +109,13 @@ export const useGameStore = create<GameStore>()(
     },
 
     playerAction: (action: ActionType, amount: number) => {
+      const prevStreet = get().state.street
       set((store) => {
         store.state = applyAction(store.state, 'human', action, amount)
       })
+      if (prevStreet !== 'showdown' && get().state.street === 'showdown') {
+        recordHandResult(get().state, get().tableConfig)
+      }
     },
 
     aiAction: (playerId: string) => {
@@ -120,8 +125,14 @@ export const useGameStore = create<GameStore>()(
 
       // Use a rough equity estimate for AI decisions (not Monte Carlo for performance)
       const roughEquity = estimateRoughEquity(state, playerId)
-      const decision = makeDecision(aiPlayer, state, roughEquity)
+      let decision
+      try {
+        decision = makeDecision(aiPlayer, state, roughEquity)
+      } catch {
+        decision = { action: 'fold' as ActionType, amount: 0, delayMs: 0 }
+      }
 
+      const prevStreet = get().state.street
       set((store) => {
         store.state = applyAction(
           store.state,
@@ -130,6 +141,9 @@ export const useGameStore = create<GameStore>()(
           decision.amount,
         )
       })
+      if (prevStreet !== 'showdown' && get().state.street === 'showdown') {
+        recordHandResult(get().state, get().tableConfig)
+      }
     },
 
     setEquity: (equity: number) => {
@@ -158,6 +172,33 @@ export const useGameStore = create<GameStore>()(
     },
   })),
 )
+
+// Record completed hand stats into playerStore
+function recordHandResult(state: GameState, config: TableConfig) {
+  const { addXP, recordHand, updateBankroll } = usePlayerStore.getState()
+  const human = state.players[0]
+  if (!human || !state.showdownResult) return
+
+  const won = state.showdownResult.winnerId.includes('human')
+  const vpip = state.handHistory.some(
+    (a) => a.playerId === 'human' && a.street === 'preflop' &&
+      ['call', 'raise', 'bet', 'allin'].includes(a.action),
+  )
+  const pfr = state.handHistory.some(
+    (a) => a.playerId === 'human' && a.street === 'preflop' &&
+      ['raise', 'bet', 'allin'].includes(a.action),
+  )
+
+  const bb = config.bigBlind
+  const winners = state.showdownResult.winnerId
+  const potShare = won ? Math.floor(state.showdownResult.amount / winners.length) : 0
+  const netChips = potShare - human.totalInvested
+  const netBB = netChips / bb
+
+  recordHand(won, vpip, pfr, netBB)
+  updateBankroll(netChips)
+  addXP(won ? 10 : 5)
+}
 
 // Rough equity estimate for AI (without Monte Carlo for speed)
 // Uses hand rank relative strength as a proxy
