@@ -30,7 +30,7 @@ export function PokerTable() {
   const gameOver = showdown && activePlayers.length < 2
 
   return (
-    <div className="flex flex-col h-[100svh] bg-gray-950 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col bg-gray-950 overflow-hidden">
 
       {/* ── Top bar ── */}
       <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-gray-800 bg-gray-900">
