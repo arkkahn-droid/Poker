@@ -193,27 +193,26 @@ export function PokerTable() {
         )}
       </div>
 
-      {/* ── Tips + XP strip ── */}
-      <div className="flex-shrink-0 border-t border-gray-800 bg-gray-900/90 px-3 pt-2 pb-1 max-h-40 overflow-y-auto">
-        {tips.length > 0 ? (
-          <div className="space-y-2 mb-2">
-            {tips.map((tip) => (
-              <div key={tip.id} className="flex items-start gap-1.5">
-                <span className="text-xs flex-shrink-0 mt-px">{tipIcon(tip.severity)}</span>
-                <div className="min-w-0">
-                  <span className={`text-[11px] font-semibold ${tipColor(tip.severity)}`}>{tip.title}: </span>
-                  <span className="text-[11px] text-gray-300 leading-relaxed">{tip.message}</span>
-                </div>
+      {/* ── Tips + XP strip — compact, scrollable ── */}
+      <div className="flex-shrink-0 border-t border-gray-800 bg-gray-900/90 px-3 pt-1.5 pb-1">
+        {/* Scrollable tips — fixed small height, scroll to read more */}
+        <div className="max-h-16 overflow-y-auto space-y-1.5 mb-1">
+          {tips.length > 0 ? tips.map((tip) => (
+            <div key={tip.id} className="flex items-start gap-1.5">
+              <span className="text-xs flex-shrink-0 mt-px">{tipIcon(tip.severity)}</span>
+              <div className="min-w-0">
+                <span className={`text-[11px] font-semibold ${tipColor(tip.severity)}`}>{tip.title}: </span>
+                <span className="text-[11px] text-gray-300 leading-snug">{tip.message}</span>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-[11px] text-gray-600 text-center py-1">
-            {showdown ? 'Hand complete' : state.street === 'idle' ? 'Ready' : 'Watching…'}
-          </div>
-        )}
-        {/* Level progress bar */}
-        <div className="flex items-center gap-2 py-1 border-t border-gray-800/50 mt-1">
+            </div>
+          )) : (
+            <div className="text-[11px] text-gray-600 py-1">
+              {showdown ? 'Hand complete' : state.street === 'idle' ? 'Ready' : 'Watching…'}
+            </div>
+          )}
+        </div>
+        {/* XP bar */}
+        <div className="flex items-center gap-2 pt-1 border-t border-gray-800/50">
           <span className="text-[9px] text-gray-600 flex-shrink-0">{levelInfo.name}</span>
           <div className="flex-1 h-0.5 bg-gray-800 rounded-full overflow-hidden">
             <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progressPct}%` }} />
