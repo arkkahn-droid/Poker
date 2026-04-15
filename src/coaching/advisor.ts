@@ -133,6 +133,38 @@ export function generateTips(
   const callAmount = Math.min(state.currentBet - human.bet, human.stack)
   const isCheckOption = state.currentBet === 0 || callAmount === 0
 
+  // ── Equity explanation tip (level 1–4 only, when equity is available) ─────
+  if (playerEquity > 0 && state.communityCards.length > 0 && playerLevel <= 4) {
+    const equityPct = Math.round(playerEquity * 100)
+    const activePlayers = state.players.filter(p => !p.folded && !p.isAllIn).length
+    if (playerLevel <= 2) {
+      tips.push(makeTip({
+        concept: 'hand-strength',
+        severity: 'info',
+        timing: 'pre-action',
+        title: `Your equity: ${equityPct}%`,
+        message: `This number is your estimated chance of winning the hand. It's calculated by simulating thousands of random opponent hands. Above 50% means you're the favourite right now.`,
+        minLevel: 1,
+      }))
+    } else {
+      // L3–4: explain the mechanics briefly
+      const callAmt = Math.min(state.currentBet - human.bet, human.stack)
+      const potOddsNeeded = callAmt > 0 ? Math.round((callAmt / (state.pot + callAmt)) * 100) : 0
+      tips.push(makeTip({
+        concept: 'pot-odds',
+        severity: 'info',
+        timing: 'pre-action',
+        title: `Equity: ${equityPct}% (Monte Carlo)`,
+        message: `Computed by running 10,000 simulated runouts against random opponent hands. ${
+          potOddsNeeded > 0
+            ? `To call profitably here you need ≥${potOddsNeeded}% equity — you have ${equityPct}%.`
+            : `Higher equity = stronger position in the hand.`
+        } Active opponents: ${activePlayers - 1}.`,
+        minLevel: 3,
+      }))
+    }
+  }
+
   // ── Pot odds tip (level 3+) ──────────────────────────────────────────────
   if (
     !isCheckOption &&
@@ -198,39 +230,54 @@ export function generateTips(
     }))
   }
 
-  // ── Hand strength tip (all levels) ──────────────────────────────────────
+  // ── Hand strength tip (4 distinct level brackets) ───────────────────────
   if (isConceptUnlocked('hand-strength', playerLevel) && state.communityCards.length > 0) {
     try {
       const result = findBestHand(human.holeCards, state.communityCards)
       const strength = relativeStrength(result.rank)
+      const equityPct = Math.round(playerEquity * 100)
+      const strengthPct = Math.round(strength * 100)
+      const texture = state.communityCards.length >= 3 ? analyzeBoardTexture(state.communityCards) : null
+
+      let msg = ''
+      let minLvl = 1
 
       if (playerLevel <= 2) {
-        // Simple language for beginners
-        let msg = ''
-        if (strength > 0.80) msg = `You have ${result.description} — that's a very strong hand! Consider betting.`
-        else if (strength > 0.55) msg = `You have ${result.description} — a solid hand.`
-        else if (strength > 0.30) msg = `You have ${result.description}. It's a decent hand, but be careful on dangerous boards.`
-        else msg = `You have ${result.description} — that's a weak hand. Think about folding if there's a big bet.`
-
-        if (msg) {
-          tips.push(makeTip({
-            concept: 'hand-strength',
-            severity: strength > 0.55 ? 'good' : strength > 0.30 ? 'info' : 'warning',
-            timing: 'pre-action',
-            title: `Your Hand: ${result.description}`,
-            message: msg,
-            minLevel: 1,
-          }))
-        }
+        // L1–2: plain English, no jargon
+        if (strength > 0.80) msg = `You have ${result.description} — a very strong hand! Bet to win more chips.`
+        else if (strength > 0.55) msg = `You have ${result.description} — a solid hand. You're in good shape.`
+        else if (strength > 0.30) msg = `You have ${result.description} — a decent hand, but be careful if someone bets big.`
+        else msg = `You have ${result.description} — a weak hand. Think about folding if facing a bet.`
+        minLvl = 1
+      } else if (playerLevel <= 4) {
+        // L3–4: adds equity context
+        const edge = equityPct > 50 ? `You're the favourite with ${equityPct}% equity.` : `You're behind with only ${equityPct}% equity.`
+        if (strength > 0.65) msg = `${result.description} is a strong hand (${strengthPct}th %ile). ${edge} Betting for value makes sense.`
+        else if (strength > 0.35) msg = `${result.description} (${strengthPct}th %ile). ${edge} Play cautiously — call reasonable bets, fold to large ones.`
+        else msg = `${result.description} is weak (${strengthPct}th %ile). ${edge} Avoid big commitments unless drawing to something strong.`
+        minLvl = 3
+      } else if (playerLevel <= 6) {
+        // L5–6: adds board texture advice
+        const wet = texture?.wetness === 'wet' ? 'wet board — bet to charge draws' : texture?.wetness === 'semi-wet' ? 'semi-wet board' : 'dry board'
+        if (strength > 0.65) msg = `${result.description} (${strengthPct}th %ile, ${equityPct}% equity). ${wet}. Bet 60–75% pot for value and protection.`
+        else if (strength > 0.35) msg = `${result.description} (${strengthPct}th %ile). ${wet}. Check-call is usually right — avoid bloating the pot with a marginal hand.`
+        else msg = `${result.description} (${strengthPct}th %ile, ${equityPct}% equity). You're bluffing territory here. Check or semi-bluff if you have draws.`
+        minLvl = 5
       } else {
-        // Shorter, more technical for higher levels
+        // L7–10: concise, strategic
+        const action = strength > 0.65 ? 'Value bet or raise frequently' : strength > 0.35 ? 'Pot control — check-call, avoid raising' : 'Bluff candidate or fold vs aggression'
+        msg = `${result.description} · ${strengthPct}th %ile · ${equityPct}% equity. ${action}.`
+        minLvl = 7
+      }
+
+      if (msg) {
         tips.push(makeTip({
           concept: 'hand-strength',
-          severity: strength > 0.60 ? 'good' : 'info',
+          severity: strength > 0.60 ? 'good' : strength > 0.30 ? 'info' : 'warning',
           timing: 'pre-action',
-          title: result.description,
-          message: `Relative strength: ${Math.round(strength * 100)}th percentile. Equity vs active players: ~${Math.round(playerEquity * 100)}%.`,
-          minLevel: 3,
+          title: playerLevel <= 2 ? `Your Hand: ${result.description}` : result.description,
+          message: msg,
+          minLevel: minLvl,
         }))
       }
     } catch {
@@ -255,32 +302,42 @@ export function generateTips(
     }
   }
 
-  // ── Position tip (level 2+) ──────────────────────────────────────────────
+  // ── Position tip (4 level brackets) ────────────────────────────────────
   if (isConceptUnlocked('position', playerLevel) && state.street === 'preflop') {
     const inPosition = position === 'BTN' || position === 'CO'
-    if (playerLevel <= 4) {
-      tips.push(makeTip({
-        concept: 'position',
-        severity: inPosition ? 'good' : 'info',
-        timing: 'pre-action',
-        title: `You are in ${position}`,
-        message: inPosition
-          ? `${position} is a great spot — you act last and can see what everyone else does.`
-          : `${position} means you act before most players. Play tighter from early position.`,
-        minLevel: 2,
-      }))
+    let posMsg = ''
+    let posMinLevel = 1
+
+    if (playerLevel <= 2) {
+      posMsg = inPosition
+        ? `${position} is a great seat — you act last, so you can see what everyone does before you decide.`
+        : `${position} means you act before most players. Stick to stronger hands here.`
+      posMinLevel = 1
+    } else if (playerLevel <= 4) {
+      posMsg = inPosition
+        ? `Late position (${position}) lets you play more hands profitably — you have information advantage.`
+        : `Early position (${position}) requires a tighter range. Avoid speculative hands that are hard to play without info.`
+      posMinLevel = 3
+    } else if (playerLevel <= 6) {
+      posMsg = inPosition
+        ? `${position}: widen your opening range and 3-bet lighter. Position is worth 1–2 extra hands per orbit.`
+        : `${position}: tighten to ~15% opening range. Out-of-position calls create tough postflop spots you're not paid for.`
+      posMinLevel = 5
     } else {
-      tips.push(makeTip({
-        concept: 'position',
-        severity: inPosition ? 'good' : 'info',
-        timing: 'pre-action',
-        title: `Position: ${position}`,
-        message: inPosition
-          ? `You have position advantage. Widen your opening range and consider more 3-bets.`
-          : `Out of position — tighten your range and avoid marginal calls that are harder to navigate postflop.`,
-        minLevel: 2,
-      }))
+      posMsg = inPosition
+        ? `${position}: maximize positional advantage — balanced 3-bet range, wider opens, float more flops in position.`
+        : `${position}: strong hands only. Construction of a balanced OOP range requires high hand quality to compensate for the info disadvantage.`
+      posMinLevel = 7
     }
+
+    tips.push(makeTip({
+      concept: 'position',
+      severity: inPosition ? 'good' : 'info',
+      timing: 'pre-action',
+      title: `Position: ${position}`,
+      message: posMsg,
+      minLevel: posMinLevel,
+    }))
   }
 
   // ── Board texture tip (level 5+) ─────────────────────────────────────────

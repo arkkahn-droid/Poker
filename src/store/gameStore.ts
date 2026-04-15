@@ -213,7 +213,7 @@ function recordHandResult(state: GameState, config: TableConfig) {
 
   recordHand(won, vpip, pfr, netBB)
   updateBankroll(netChips)
-  addXP(won ? 10 : 5)
+  addXP(won ? 4 : 2)
 }
 
 // Rough equity estimate for AI (without Monte Carlo for speed)

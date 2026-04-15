@@ -9,12 +9,12 @@ import { ShowdownOverlay } from './ShowdownOverlay'
 // Seat positions around the table (CSS positions as percentages)
 // Seat 0 = human (bottom center), 1-5 = AI players
 const SEAT_POSITIONS = [
-  { bottom: '2%', left: '50%', transform: 'translateX(-50%)' },   // 0 = human, bottom
-  { bottom: '30%', left: '5%' },                                    // 1 = left
+  { bottom: '1%', left: '50%', transform: 'translateX(-50%)' },   // 0 = human, bottom
+  { bottom: '40%', left: '3%' },                                    // 1 = left (lifted to avoid overlap)
   { top: '5%', left: '15%' },                                       // 2 = top-left
   { top: '5%', left: '50%', transform: 'translateX(-50%)' },        // 3 = top-center
   { top: '5%', right: '15%' },                                      // 4 = top-right
-  { bottom: '30%', right: '5%' },                                   // 5 = right
+  { bottom: '40%', right: '3%' },                                   // 5 = right (lifted to avoid overlap)
 ]
 
 export function PokerTable() {
@@ -32,7 +32,7 @@ export function PokerTable() {
   const aiTurn = !humanTurn && state.street !== 'idle' && state.street !== 'showdown'
 
   return (
-    <div className="flex h-screen bg-gray-950 overflow-hidden">
+    <div className="flex h-[100svh] bg-gray-950 overflow-hidden">
       {/* Main table area + board strip + action panel */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
@@ -125,7 +125,7 @@ export function PokerTable() {
       </div>
 
       {/* Coach panel (right sidebar) */}
-      <div className="w-56 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
+      <div className="w-40 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
         <CoachPanel />
       </div>
     </div>
