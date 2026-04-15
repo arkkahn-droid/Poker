@@ -53,7 +53,7 @@ export function PokerTable() {
           return (
             <div
               key={player.id}
-              className={`flex items-center gap-2 px-3 py-2 ${isActing ? 'bg-yellow-950/40' : ''}`}
+              className={`flex items-center gap-2 px-3 py-1.5 ${isActing ? 'bg-yellow-950/40' : ''}`}
             >
               {/* Acting dot */}
               <div className="w-2 flex-shrink-0 flex items-center justify-center">
@@ -224,9 +224,17 @@ export function PokerTable() {
 
       {/* ── Action panel ── */}
       {humanTurn && (
-        <div className="flex-shrink-0 border-t border-gray-800 bg-gray-950 px-3 py-2">
+        <div
+          className="flex-shrink-0 border-t border-gray-800 bg-gray-950 px-3 pt-2"
+          style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
+        >
           <ActionPanel />
         </div>
+      )}
+
+      {/* Safe-area spacer when action panel is hidden (AI turn / showdown) */}
+      {!humanTurn && (
+        <div style={{ height: 'env(safe-area-inset-bottom)', flexShrink: 0 }} />
       )}
 
     </div>
