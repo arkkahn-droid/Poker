@@ -155,3 +155,54 @@ function combinations(n: number, k: number): number {
   }
   return result
 }
+
+// Range-based equity: only the player's cards are known; opponents get random hands each iteration.
+// This is the correct way to calculate equity without inside information.
+export function calculatePlayerEquity(
+  playerCards: Card[],
+  board: Card[],
+  numOpponents: number,
+  iterations = 8000,
+): number {
+  if (numOpponents === 0) return 1.0
+
+  const knownCards = [...board, ...playerCards]
+  const remaining = removeCards(createDeck(), knownCards)
+  const cardsNeeded = 5 - board.length
+
+  let wins = 0
+
+  for (let iter = 0; iter < iterations; iter++) {
+    const shuffled = shuffle(remaining)
+
+    // Deal 2 random cards to each opponent
+    const allHands: Card[][] = [playerCards]
+    for (let i = 0; i < numOpponents; i++) {
+      allHands.push([shuffled[i * 2], shuffled[i * 2 + 1]])
+    }
+
+    // Complete the board from cards after opponent hands
+    const boardStart = numOpponents * 2
+    const simBoard = [...board, ...shuffled.slice(boardStart, boardStart + cardsNeeded)]
+
+    let bestRank = Infinity
+    const winners: number[] = []
+
+    for (let i = 0; i < allHands.length; i++) {
+      const rank = evaluateStrings(toStrings([...allHands[i], ...simBoard]))
+      if (rank < bestRank) {
+        bestRank = rank
+        winners.length = 0
+        winners.push(i)
+      } else if (rank === bestRank) {
+        winners.push(i)
+      }
+    }
+
+    if (winners.includes(0)) {
+      wins += 1 / winners.length
+    }
+  }
+
+  return wins / iterations
+}

@@ -1,10 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { wrap } from 'comlink'
 import { useGameStore } from '../store/gameStore'
-import type { EquityResult } from '../engine/equity'
 
 type EquityWorkerApi = {
-  calculateEquity(holeCards: number[][], board: number[], iterations?: number): Promise<EquityResult>
+  calculatePlayerEquity(playerCards: number[], board: number[], numOpponents: number, iterations?: number): Promise<number>
 }
 
 let workerInstance: Worker | null = null
@@ -29,27 +28,21 @@ export function useEquity() {
     if (!human || human.holeCards.length < 2) return
     if (state.street === 'idle' || state.street === 'showdown') return
 
-    const activePlayers = state.players.filter((p) => !p.folded && p.holeCards.length === 2)
-    if (activePlayers.length < 2) return
+    const numOpponents = state.players.filter(
+      (p) => !p.folded && !p.isHuman && p.holeCards.length === 2,
+    ).length
+    if (numOpponents === 0) return
 
-    // Create a key to avoid recalculating when nothing changed
-    const key = `${state.street}-${state.communityCards.join(',')}-${human.holeCards.join(',')}`
+    const key = `${state.street}-${state.communityCards.join(',')}-${human.holeCards.join(',')}-${numOpponents}`
     if (key === lastCalculationKey.current) return
     lastCalculationKey.current = key
 
     setEquityLoading(true)
 
-    const holeCards = activePlayers.map((p) => p.holeCards)
-    const board = state.communityCards
-
     const api = getWorker()
-    api.calculateEquity(holeCards, board, 8000)
-      .then((result) => {
-        // Index 0 = human player
-        const humanIdx = activePlayers.findIndex((p) => p.id === 'human')
-        if (humanIdx >= 0) {
-          setEquity(result.equities[humanIdx])
-        }
+    api.calculatePlayerEquity(human.holeCards, state.communityCards, numOpponents, 8000)
+      .then((equity) => {
+        setEquity(equity)
       })
       .catch(() => {
         setEquityLoading(false)
